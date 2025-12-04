@@ -207,3 +207,5 @@ marimo/_lsp/
 __marimo__/
 /dlib-20.0.0
 data/.DS_Store
+deepfake_detection_image.py
+deepfake_detection_video.py
