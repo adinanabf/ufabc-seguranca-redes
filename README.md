@@ -1,4 +1,4 @@
-# Face Access — Reconhecimento Facial e Detecção de Deepfake
+# Face Access - Reconhecimento Facial e Detecção de Deepfake
 
 Aplicação desktop (Tkinter) em Python que:
 
@@ -6,7 +6,7 @@ Aplicação desktop (Tkinter) em Python que:
 - Permite cadastrar usuários (salvando a imagem no disco) e reconhecê-los depois.
 - Realiza verificação de deepfake em tempo real, usando um modelo de `PyTorch`.
 
-Projeto da disciplina Segurança de Redes — UFABC (2025.3).
+Projeto da disciplina Segurança de Redes - UFABC (2025.3).
 
 Referências:
 
@@ -111,7 +111,7 @@ python main.py
 
 1. Selecione a câmera no menu à esquerda (0 geralmente é a webcam padrão). Se necessário, clique em “Open Camera”.
 
-## Uso — Passo a Passo
+## Uso - Passo a Passo
 
 ### Registrar Usuário
 
