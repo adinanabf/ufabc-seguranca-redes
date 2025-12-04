@@ -206,3 +206,4 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 /dlib-20.0.0
+data/.DS_Store

@@ -2,4 +2,12 @@ dlib
 face_recognition
 opencv-python
 numpy
-opencv-python
+torch
+torchvision
+pytorch-lightning
+gradio
+PyYAML
+Pillow
+Flask
+scikit-learn
+tensorboard
