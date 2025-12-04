@@ -209,3 +209,4 @@ __marimo__/
 data/.DS_Store
 deepfake_detection_image.py
 deepfake_detection_video.py
+.DS_Store
