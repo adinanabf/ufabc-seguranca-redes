@@ -15,6 +15,31 @@ Referências:
 - Modelo de detecção de deepfake: <https://github.com/TRahulsingh/DeepfakeDetector>
 - Aplicação para geração de deepfakes: <https://github.com/hacksider/Deep-Live-Cam>
 
+## Fluxo da Aplicação
+
+```mermaid
+flowchart TD
+    A["Início do App (Tk)"] --> B[Selecionar Câmera]
+    B --> C{Escolher Modo}
+    C -->|Register| D[Entrada Nome + Capturar]
+    D --> E[Salvar em known_faces/<nome>.jpg]
+    E --> B
+
+    C -->|Recognize| G["Detecção de Rostos (HOG)"]
+    G --> H["Embeddings + Comparação"]
+    H --> I{Match?}
+    I -->|Sim| J["Desenhar Caixa Verde + Nome"]
+    I -->|Não| K["Desenhar Caixa Vermelha + Unknown"]
+    J --> F[Loop Frames]
+    K --> F
+
+    C -->|Deepfake Check| L["Carregar Modelo"]
+    L --> M["Amostrar a cada 10 frames"]
+    M --> N["Classificar (REAL/FAKE)"]
+    N --> O["Atualizar legenda"]
+    O --> F
+```
+
 ## Visão Geral
 
 A interface possui um painel à esquerda com seleção de câmera e botões de ação, e uma área de preview à direita com o vídeo da webcam. Existem três modos principais:
@@ -135,32 +160,6 @@ data/
   deepfake/
 models/
   best_model-v3.pt
-```
-
-## Fluxo da Aplicação
-
-```mermaid
-flowchart TD
-    A[Início do App (Tk)] --> B[Selecionar Câmera]
-    B --> C{Escolher Modo}
-    C -->|Register| D[Entrada Nome + Capturar]
-    D --> E[Salvar em known_faces/<nome>.jpg]
-    E --> B
-
-    C -->|Recognize| F[Loop Frames]
-    F --> G[Detecção de Rostos (HOG)]
-    G --> H[Embeddings + Comparação]
-    H --> I{Match?}
-    I -->|Sim| J[Desenhar Caixa Verde + Nome]
-    I -->|Não| K[Desenhar Caixa Vermelha + Unknown]
-    J --> F
-    K --> F
-
-    C -->|Deepfake Check| L[Carregar Modelo]
-    L --> M[Amostrar a cada 10 frames]
-    M --> N[Classificar (REAL/FAKE)]
-    N --> O[Atualizar Painel]
-    O --> F
 ```
 
 ## Dicas e Solução de Problemas
