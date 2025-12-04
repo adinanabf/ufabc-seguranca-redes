@@ -36,7 +36,7 @@ class FaceApp(tk.Tk):
         self.deepfake_transform = None
         self.deepfake_frame_counter = 0
 
-        # Cache known faces (loaded once)
+        # Cache known faces (loaded once, refreshable after new registrations)
         self.known_face_encodings, self.known_face_names = load_known_faces(
             KNOWN_FACES_DIR
         )
@@ -304,6 +304,10 @@ class FaceApp(tk.Tk):
         out_path = os.path.join(KNOWN_FACES_DIR, f"{safe_name}.jpg")
         try:
             img.save(out_path, format="JPEG", quality=95)
+            # Refresh known faces cache so recognition sees the new user
+            self.known_face_encodings, self.known_face_names = load_known_faces(
+                KNOWN_FACES_DIR
+            )
             # Only show the username in the status to keep it compact
             self.set_status(f"User saved: {safe_name}")
             messagebox.showinfo("Saved", f"User registered: {safe_name}")
