@@ -6,8 +6,11 @@ import cv2
 import numpy as np
 import face_recognition
 
+from deepfake_detector import load_deepfake_model, predict_frames
+from face_recognition_module import load_known_faces
+
+
 KNOWN_FACES_DIR = os.path.join(os.path.dirname(__file__), "known_faces")
-FASTER_SCRIPT = os.path.join(os.path.dirname(__file__), "facerec_from_webcam_faster.py")
 
 
 class FaceApp(tk.Tk):
@@ -27,10 +30,16 @@ class FaceApp(tk.Tk):
         self.last_face_locations = []
         self.last_face_names = []
 
+        # Deepfake detection state
+        self.deepfake_model = None
+        self.deepfake_device = None
+        self.deepfake_transform = None
+        self.deepfake_frame_counter = 0
+
         # Cache known faces (loaded once)
-        self.known_face_encodings = []
-        self.known_face_names = []
-        self._load_known_faces()
+        self.known_face_encodings, self.known_face_names = load_known_faces(
+            KNOWN_FACES_DIR
+        )
 
         # Main layout: left controls, right preview
         root = ttk.Frame(self, padding=12)
@@ -70,6 +79,9 @@ class FaceApp(tk.Tk):
             fill=tk.X, pady=6
         )
         ttk.Button(btn_row, text="Recognize User", command=self.start_login).pack(
+            fill=tk.X, pady=6
+        )
+        ttk.Button(btn_row, text="Deepfake Check", command=self.start_deepfake).pack(
             fill=tk.X, pady=6
         )
 
@@ -113,6 +125,12 @@ class FaceApp(tk.Tk):
         # Hidden by default (only in register mode)
         self.register_panel.pack_forget()
 
+        # Deepfake result panel (shown only in deepfake mode)
+        self.deepfake_panel = ttk.Frame(preview_area)
+        self.deepfake_label = ttk.Label(self.deepfake_panel, text="Deepfake: N/A")
+        self.deepfake_label.pack(side=tk.LEFT)
+        self.deepfake_panel.pack_forget()
+
         # Ensure known faces directory exists
         os.makedirs(KNOWN_FACES_DIR, exist_ok=True)
 
@@ -127,12 +145,22 @@ class FaceApp(tk.Tk):
         # Deprecated in single-window UI
         pass
 
+    def _reset_mode_state(self):
+        """Reset per-mode processing state so previous tool work stops."""
+        self.process_this_frame = True
+        self.last_face_locations = []
+        self.last_face_names = []
+        self.deepfake_frame_counter = 0
+
     def start_login(self):
+        self._reset_mode_state()
         self.mode = "login"
         self.set_status("Recognition mode")
         # Hide register-only panel
         if hasattr(self, "register_panel"):
             self.register_panel.pack_forget()
+        if hasattr(self, "deepfake_panel"):
+            self.deepfake_panel.pack_forget()
         if self.cap is None:
             self.switch_camera()
 
@@ -154,11 +182,35 @@ class FaceApp(tk.Tk):
         self.after(50, self.update_preview_loop)
 
     def start_register(self):
+        self._reset_mode_state()
         self.mode = "register"
         self.set_status("Register mode")
         # Show register-only panel
         if hasattr(self, "register_panel"):
             self.register_panel.pack(fill=tk.X, padx=6, pady=(8, 6))
+        if hasattr(self, "deepfake_panel"):
+            self.deepfake_panel.pack_forget()
+        if self.cap is None:
+            self.switch_camera()
+
+    def _ensure_deepfake_model(self):
+        if self.deepfake_model is None:
+            self.set_status("Loading deepfake model...")
+            self.deepfake_model, self.deepfake_device, self.deepfake_transform = (
+                load_deepfake_model()
+            )
+            self.set_status("Deepfake model ready")
+
+    def start_deepfake(self):
+        self._reset_mode_state()
+        self.mode = "deepfake"
+        self._ensure_deepfake_model()
+        self.set_status("Deepfake check mode")
+        # Hide register panel, show deepfake panel
+        if hasattr(self, "register_panel"):
+            self.register_panel.pack_forget()
+        if hasattr(self, "deepfake_panel"):
+            self.deepfake_panel.pack(fill=tk.X, padx=6, pady=(4, 6))
         if self.cap is None:
             self.switch_camera()
 
@@ -181,6 +233,28 @@ class FaceApp(tk.Tk):
                         display_bgr, self.last_face_locations, self.last_face_names
                     )
                 self.process_this_frame = not self.process_this_frame
+            elif self.mode == "deepfake" and self.deepfake_model is not None:
+                # Sample every Nth frame for deepfake prediction
+                self.deepfake_frame_counter += 1
+                if self.deepfake_frame_counter % 10 == 0:
+                    try:
+                        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                        pil_frame = Image.fromarray(rgb)
+                        label, probs = predict_frames(
+                            [pil_frame],
+                            self.deepfake_model,
+                            self.deepfake_device,
+                            self.deepfake_transform,
+                        )
+                        real_p = float(probs[0])
+                        fake_p = float(probs[1])
+                        status = "FAKE" if label == 1 else "REAL"
+                        text = f"Deepfake: {status} | R={real_p:.2f}, F={fake_p:.2f}"
+                        color = "#a00" if label == 1 else "#0a0"
+                        self.deepfake_label.config(text=text, foreground=color)
+                    except Exception:
+                        # Best-effort; don't break the preview loop
+                        pass
 
             # Convert to PIL Image
             rgb = cv2.cvtColor(display_bgr, cv2.COLOR_BGR2RGB)
@@ -293,23 +367,6 @@ class FaceApp(tk.Tk):
                     1,
                 )
         except Exception:
-            pass
-
-    def _load_known_faces(self):
-        try:
-            self.known_face_encodings.clear()
-            self.known_face_names.clear()
-            for filename in os.listdir(KNOWN_FACES_DIR):
-                if filename.lower().endswith((".jpg", ".jpeg", ".png")):
-                    img = face_recognition.load_image_file(
-                        os.path.join(KNOWN_FACES_DIR, filename)
-                    )
-                    encs = face_recognition.face_encodings(img)
-                    if encs:
-                        self.known_face_encodings.append(encs[0])
-                        self.known_face_names.append(os.path.splitext(filename)[0])
-        except Exception:
-            # Ignore load errors
             pass
 
 
